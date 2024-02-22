@@ -3,8 +3,8 @@ import type {
   LinksFunction,
 } from "@remix-run/node";
 import {
+  Form,
   Link,
-  redirect,
   useActionData,
   useSearchParams,
 } from "@remix-run/react";
@@ -12,7 +12,11 @@ import {
 import stylesUrl from "~/styles/login.css";
 import { db } from "~/utils/db.server";
 import { badRequest } from "~/utils/request.server";
-import { login } from "~/utils/session.server";
+import {
+  createUserSession,
+  login,
+  register,
+} from "~/utils/session.server";
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: stylesUrl },
@@ -85,9 +89,7 @@ export const action = async ({
             "Username/Password combination is incorrect",
         });
       }
-      else {
-        redirect("jokes");
-      }
+      return createUserSession(user.id, redirectTo);
     }
     case "register": {
       const userExists = await db.user.findFirst({
@@ -100,13 +102,16 @@ export const action = async ({
           formError: `User with username ${username} already exists`,
         });
       }
-      // create the user
-      // create their session and redirect to /jokes
-      return badRequest({
-        fieldErrors: null,
-        fields,
-        formError: "Not implemented",
-      });
+      const user = await register({ username, password });
+      if (!user) {
+        return badRequest({
+          fieldErrors: null,
+          fields,
+          formError:
+            "Something went wrong trying to create a new user.",
+        });
+      }
+      return createUserSession(user.id, redirectTo);
     }
     default: {
       return badRequest({
@@ -125,7 +130,7 @@ export default function Login() {
     <div className="container">
       <div className="content" data-light="">
         <h1>Login</h1>
-        <form method="post">
+        <Form method="post">
           <input
             type="hidden"
             name="redirectTo"
@@ -227,7 +232,7 @@ export default function Login() {
           <button type="submit" className="button">
             Submit
           </button>
-        </form>
+        </Form>
       </div>
       <div className="links">
         <ul>
